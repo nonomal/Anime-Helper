@@ -1,4 +1,23 @@
-export function toSql(filter: string, param: string | undefined): string{
+function calculateEpisodesReleased(firstEpisodeTimestamp: number): number {
+  const tmp = new Date();
+  const currentDate = new Date(tmp.getFullYear(), tmp.getMonth(), tmp.getDate());
+  const difference = currentDate.getTime() - firstEpisodeTimestamp;
+  const daysPassed=Math.floor(difference / (1000 * 60 * 60 * 24));
+  const weeksPassed = Math.floor(daysPassed / 7);
+  return Math.max(weeksPassed, 0) + 1;
+}
+
+// 是否在更新
+function onUpudate(time: number, episode: number): boolean{
+  if(time==0){
+    return false;
+  }else if(calculateEpisodesReleased(time)<episode){
+    return true;
+  }
+  return false;
+}
+
+export function toSql(filter: string, param: string | undefined, sort: string | undefined): string {
   if(filter=="none"){
     return `SELECT * FROM list ORDER BY ROWID DESC LIMIT ? OFFSET ?`;
   }else if(filter=="progress"){

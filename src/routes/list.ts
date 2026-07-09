@@ -6,7 +6,8 @@ export interface ListQuery{
   offset: string | undefined,
   limit: string | undefined,
   filter: string| undefined,
-  param: string | undefined
+  param: string | undefined,
+  sort: string | undefined,
 }
 
 interface ListItem{
@@ -99,11 +100,16 @@ export class List{
           return ToResponse(false, "参数不正确");
         }
       }
+      if(query.sort){
+        if(!["az", "za", "add_new_old", "add_old_new", "update_first", "update_end"].includes(query.sort as string)){
+          return ToResponse(false, "参数不正确");
+        }
+      }
       try {
         const countResult = db.prepare(calCount(query.filter, query.param)).get() as any;
         const totalCount = countResult ? countResult.count : 0;
 
-        const listData=db.prepare(toSql(query.filter, query.param)).all(query.limit, query.offset)
+        const listData=db.prepare(toSql(query.filter, query.param, query.sort)).all(query.limit, query.offset)
         return ToResponse(true, {
           length: totalCount,
           data: listData,
