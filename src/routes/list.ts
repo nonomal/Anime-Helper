@@ -1,6 +1,7 @@
 import Database from "bun:sqlite";
 import { ResponseType, ToResponse } from "./types";
 import { calCount, toSql } from "./list_filter";
+import pinyin from "pinyin";
 
 export interface ListQuery{
   offset: string | undefined,
@@ -55,7 +56,15 @@ export class List{
 
     try {
       const data=body.data as ListItem;
-      db.prepare(`INSERT INTO list VALUES (?, ?, ?, ?, ?, ?)`).run(data.id, data.title, data.episode, data.now, data.time, data.bgmId);
+      const pinyinArray = pinyin(
+        data.title,
+        {
+          style: "normal",
+          segment: "Intl.Segmenter"
+        }
+      );
+      const pinyinResult = pinyinArray.flat().join("").toLowerCase().trim();
+      db.prepare(`INSERT INTO list (id, title, episode, now, time, bgmId, pinyin) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(data.id, data.title, data.episode, data.now, data.time, data.bgmId, pinyinResult);
     } catch (error) {
       return ToResponse(false, error);
     }
@@ -81,7 +90,15 @@ export class List{
     
     try {
       const data=body.data as ListItem;
-      db.prepare(`UPDATE list SET title = ?, episode = ?, now = ?, time = ?, bgmId = ? WHERE id = ?`).run(data.title, data.episode, data.now, data.time, data.bgmId, data.id);
+      const pinyinArray = pinyin(
+        data.title,
+        {
+          style: "normal",
+          segment: "Intl.Segmenter"
+        }
+      );
+      const pinyinResult = pinyinArray.flat().join("").toLowerCase().trim();
+      db.prepare(`UPDATE list SET title = ?, episode = ?, now = ?, time = ?, bgmId = ?, pinyin = ? WHERE id = ?`).run(data.title, data.episode, data.now, data.time, data.bgmId, pinyinResult, data.id);
     } catch (error) {
       return ToResponse(false, error);
     }
