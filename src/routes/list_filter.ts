@@ -2,9 +2,34 @@
 // 【sort】"az", "za", "add_new_old", "add_old_new", "update_first", "update_end"
 export function toSql(filter: string, param: string | undefined, sort: string | undefined): string {
 
+  const onUpdateCondition = `(time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)`;
+
+  let orderBy: string;
+  switch (sort) {
+    case "az":
+      orderBy = "ORDER BY pinyin ASC";
+      break;
+    case "za":
+      orderBy = "ORDER BY pinyin DESC";
+      break;
+    case "add_old_new":
+      orderBy = "ORDER BY ROWID ASC";
+      break;
+    case "update_first":
+      orderBy = `ORDER BY CASE WHEN ${onUpdateCondition} THEN 0 ELSE 1 END, ROWID DESC`;
+      break;
+    case "update_end":
+      orderBy = `ORDER BY CASE WHEN ${onUpdateCondition} THEN 1 ELSE 0 END, ROWID DESC`;
+      break;
+    default:
+      orderBy = "ORDER BY ROWID DESC";
+  }
+
+  const limitClause = "LIMIT ? OFFSET ?";
+
   switch (filter){
     case "none":
-      return `SELECT * FROM list ORDER BY ROWID DESC LIMIT ? OFFSET ?`;
+      return `SELECT * FROM list ${orderBy} ${limitClause}`;
     case "progress":
       return `SELECT * FROM list
       WHERE (
@@ -14,13 +39,13 @@ export function toSql(filter: string, param: string | undefined, sort: string | 
         OR
         (time != 0 AND ((((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) >= episode) AND now < episode)
       )
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      ${orderBy}
+      ${limitClause}`;
     case "onUpdate":
       return `SELECT * FROM list
-      WHERE (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      WHERE ${onUpdateCondition}
+      ${orderBy}
+      ${limitClause}`;
     case "updateDone":
       return `SELECT * FROM list
       WHERE (
@@ -28,8 +53,8 @@ export function toSql(filter: string, param: string | undefined, sort: string | 
         OR
         (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) >= episode)
       )
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      ${orderBy}
+      ${limitClause}`;
     case "watchDone":
       return `SELECT * FROM list
       WHERE (
@@ -37,22 +62,22 @@ export function toSql(filter: string, param: string | undefined, sort: string | 
         OR
         (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) >= episode AND now = episode)
       )
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      ${orderBy}
+      ${limitClause}`;
     case "search":
       return `SELECT * FROM list
       WHERE title LIKE '%${param}%'
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      ${orderBy}
+      ${limitClause}`;
     case "weekday":
       return `SELECT * FROM list
       WHERE (
         strftime('%w', time / 1000, 'unixepoch', 'localtime') = '${param}'
         AND
-        (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)
+        ${onUpdateCondition}
       )
-      ORDER BY ROWID DESC
-      LIMIT ? OFFSET ? `
+      ${orderBy}
+      ${limitClause}`;
     default:
       return "";
   }
