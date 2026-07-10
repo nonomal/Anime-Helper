@@ -110,7 +110,7 @@ export class List{
     if(query.filter && query.offset && query.limit){
       if(!this.validFilter(query.filter)){
         return ToResponse(false, "筛选方式不合法");
-      }else if((query.filter=="search" || query.filter=="updateWeek") && query.param==undefined){
+      }else if((query.filter=="search" || query.filter=="weekday") && query.param==undefined){
         return ToResponse(false, "缺少参数");
       }else if(query.filter=="weekday"){
         if(!["0", "1", "2", "3", "4", "5", "6"].includes(query.param as string)){
