@@ -7,7 +7,7 @@ import { Downloader } from "./routes/downloader";
 import { Recent } from "./routes/recent";
 import auth, { refresh } from "./routes/auth";
 import staticPlugin from "@elysiajs/static";
-const pkg = await import("../package.json");
+import pkg from "../package.json";
 
 import { Search } from "./routes/search";
 import { Bgm } from "./routes/bgm";
