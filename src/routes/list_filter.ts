@@ -78,6 +78,20 @@ export function toSql(filter: string, param: string | undefined, sort: string | 
       )
       ${orderBy}
       ${limitClause}`;
+    case "unwatched":
+      return `SELECT * FROM list
+      WHERE (
+        (time = 0 AND now < episode)
+        OR
+        (time != 0
+          AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode
+          AND now < (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000)
+        )
+        OR
+        (time != 0 AND ((((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) >= episode) AND now < episode)
+      )
+      ${orderBy}
+      ${limitClause}`;
     default:
       return "";
   }
@@ -122,6 +136,18 @@ export function calCount(filter: string, param: string | undefined) {
         strftime('%w', time / 1000, 'unixepoch', 'localtime') = '${param}'
         AND
         (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)
+      )`;
+    case "unwatched":
+      return `SELECT COUNT(*) as count FROM list
+      WHERE (
+        (time = 0 AND now < episode)
+        OR
+        (time != 0
+          AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode
+          AND now < (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000)
+        )
+        OR
+        (time != 0 AND ((((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) >= episode) AND now < episode)
       )`;
     default:
       return "";

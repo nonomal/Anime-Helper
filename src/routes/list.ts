@@ -30,7 +30,7 @@ export class List{
   }
 
   validFilter(filter: string): boolean{
-    if(filter=="none" || filter=="progress" || filter=="onUpdate" || filter=="updateDone" || filter=="watchDone" || filter=="search" || filter=="weekday"){
+    if(filter=="none" || filter=="progress" || filter=="onUpdate" || filter=="updateDone" || filter=="watchDone" || filter=="search" || filter=="weekday" || filter=="unwatched"){
       return true;
     }
     return false;
@@ -127,6 +127,7 @@ export class List{
         const totalCount = countResult ? countResult.count : 0;
 
         const listData=db.prepare(toSql(query.filter, query.param, query.sort)).all(query.limit, query.offset)
+        
         return ToResponse(true, {
           length: totalCount,
           data: listData,
