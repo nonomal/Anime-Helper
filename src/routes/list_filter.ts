@@ -1,8 +1,8 @@
 // 【filter】"none", "progress", "onUpdate", "updateDone", "watchDone", "search", "weekday"
 // 【sort】"az", "za", "add_new_old", "add_old_new", "update_first", "update_end"
-export function toSql(filter: string, param: string | undefined, sort: string | undefined): string {
+const onUpdateCondition = `(time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)`;
 
-  const onUpdateCondition = `(time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)`;
+export function toSql(filter: string, param: string | undefined, sort: string | undefined): string {
 
   let orderBy: string;
   switch (sort) {
@@ -74,7 +74,11 @@ export function toSql(filter: string, param: string | undefined, sort: string | 
       WHERE (
         strftime('%w', time / 1000, 'unixepoch', 'localtime') = '${param}'
         AND
-        ${onUpdateCondition}
+        (
+          ${onUpdateCondition}
+          OR
+          (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) = episode AND strftime('%w', 'now', 'localtime') = '${param}')
+        )
       )
       ${orderBy}
       ${limitClause}`;
@@ -135,7 +139,11 @@ export function calCount(filter: string, param: string | undefined) {
       WHERE (
         strftime('%w', time / 1000, 'unixepoch', 'localtime') = '${param}'
         AND
-        (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)
+        (
+          (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) < episode)
+          OR
+          (time != 0 AND (((strftime('%s','now') * 1000) - time + 604800000 - 1) / 604800000) = episode AND strftime('%w', 'now', 'localtime') = '${param}')
+        )
       )`;
     case "unwatched":
       return `SELECT COUNT(*) as count FROM list
