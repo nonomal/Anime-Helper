@@ -3,6 +3,7 @@
 <img src="assets/icon.svg" width=100></img>
 
 ![License](https://img.shields.io/badge/License-MIT-dark_green)
+![Docker Pulls](https://img.shields.io/docker/pulls/zhouc1230/anime-helper)
 
 这个项目由ElysiaJS和Vue开发  
 前端页面的仓库[在这里](https://github.com/Zhoucheng133/Anime-Helper-UI)
