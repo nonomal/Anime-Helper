@@ -3,8 +3,7 @@ import { ResponseType, ToResponse } from "./types";
 import { nanoid } from "nanoid";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { get } from "lodash";
-import { getJwtSecret } from "../config";
+import { getRefreshSecret, getAccessSecret, updateSecrets } from "../config";
 
 export class User{
 
@@ -64,7 +63,7 @@ export class User{
       {
         username,
       }, 
-      getJwtSecret(),
+      getAccessSecret(),
       {
         expiresIn: "10m",
       }
@@ -74,19 +73,52 @@ export class User{
       {
         username,
       }, 
-      getJwtSecret(),
+      getRefreshSecret(),
       {
         expiresIn: "30d",
       }
     );
 
-    cookie.refresh_token.set({
+    cookie.animehelper_refresh_token.set({
       value: refreshToken,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60,
       httpOnly: true,
       path: "/api/refresh",
     })
 
     return ToResponse(true, accessToken);
+  }
+
+  // 修改密码
+  async changePassword(body: any, db: Database, headers: any): Promise<ResponseType>{
+    if(!body || !body.password || !body.newPassword){
+      return ToResponse(false, "参数不正确");
+    }
+
+    const { password, newPassword } = body;
+    try {
+      const decoded = jwt.verify(headers.token, getAccessSecret()) as any;
+      const username = decoded.username;
+      const user = db.prepare("SELECT password FROM user WHERE username = ?").get(username) as any;
+      if (!user || !bcrypt.compareSync(password, user.password)) {
+        return ToResponse(false, "旧密码不正确");
+      }
+      db.prepare("UPDATE user SET password = ? WHERE username = ?")
+        .run(bcrypt.hashSync(newPassword, 10), username);
+      return ToResponse(true, "修改成功，请重新登录");
+    } catch (error) {
+      return ToResponse(false, "身份验证失败或已过期");
+    }
+  }
+
+  // 注销
+  logout(cookie: any){
+    cookie.animehelper_refresh_token.set({
+      value: "",
+      maxAge: 0,
+      httpOnly: true,
+      path: "/api/refresh",
+    })
+    return ToResponse(true, "");
   }
 }

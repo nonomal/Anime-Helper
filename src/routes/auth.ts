@@ -1,4 +1,4 @@
-import { getJwtSecret } from "../config";
+import { getAccessSecret, getRefreshSecret } from "../config";
 import { ResponseType, ToResponse } from "./types";
 import jwt from 'jsonwebtoken';
 
@@ -6,11 +6,11 @@ export default async function auth(headers: any): Promise<ResponseType> {
   const token = headers.token;
 
   if (!token) {
-      return ToResponse(false, "未提供令牌");
+    return ToResponse(false, "未提供令牌");
   }
 
   try {
-    const profile = jwt.verify(token, getJwtSecret()) as any;
+    const profile = jwt.verify(token, getAccessSecret()) as any;
     
     if (profile?.username) {
       return ToResponse(true, "");
@@ -29,19 +29,19 @@ export default async function auth(headers: any): Promise<ResponseType> {
 }
 
 export function refresh(cookie: any): ResponseType {  
-  const refresh_token = cookie.refresh_token;
+  const refresh_token = cookie.animehelper_refresh_token;
   if (!refresh_token.value) {
     return ToResponse(false, "没有登录");
   }
   try {
-    const profile = jwt.verify(refresh_token.value, getJwtSecret()) as any;
+    const profile = jwt.verify(refresh_token.value, getRefreshSecret()) as any;
     
     if(profile?.username){
       const newAccessToken = jwt.sign(
         {
           username: profile.username,
         },
-        getJwtSecret(),
+        getAccessSecret(),
         {
           expiresIn: "10m",
         }

@@ -1,4 +1,5 @@
 import Database from "bun:sqlite";
+import pinyin from "pinyin";
 
 export function initDB(db: Database){
   initUserTable(db);
@@ -18,6 +19,33 @@ function initUserTable(db: Database){
   `).run()
 }
 
+function syncHistoryPinyin(db: Database) {
+  const rows = db.prepare("SELECT id, title FROM list WHERE pinyin IS NULL OR pinyin = ''").all() as any[];
+  
+  if (rows.length === 0) return;
+  const updateStmt = db.prepare("UPDATE list SET pinyin = ? WHERE id = ?");
+
+  const updateTransaction = db.transaction((data: any[]) => {
+    for (const row of data) {
+      const pinyinArray = pinyin(
+        row.title,
+        {
+          style: "normal",
+          segment: "Intl.Segmenter"
+        }
+      ); 
+      const pinyinResult = pinyinArray.flat().join("").toLowerCase().trim();
+      updateStmt.run(pinyinResult, row.id);
+    }
+  });
+
+  try {
+    updateTransaction(rows);
+  } catch (e) {
+    console.error("同步历史拼音失败:", e);
+  }
+}
+
 function initListTable(db: Database){
   db.prepare(`
     CREATE TABLE IF NOT EXISTS list (
@@ -25,9 +53,28 @@ function initListTable(db: Database){
       title TEXT,
       episode INTEGER,
       now INTEGER,
-      time INTEGER
+      time INTEGER,
+      bgmId TEXT,
+      pinyin TEXT
     )
-  `).run()
+  `).run();
+  
+  const tableInfo = db.prepare("PRAGMA table_info(list)").all() as any[];
+  const hasBgmId = tableInfo.some(column => column.name === 'bgmId');
+
+  if (!hasBgmId) {
+    try {
+      db.prepare("ALTER TABLE list ADD COLUMN bgmId TEXT DEFAULT ''").run();
+    } catch (_) {}
+  }
+
+  const hasPinyin = tableInfo.some(column => column.name === 'pinyin');
+  if (!hasPinyin) {
+    try {
+      db.prepare("ALTER TABLE list ADD COLUMN pinyin TEXT DEFAULT ''").run();
+    } catch (_) {}
+  }
+  syncHistoryPinyin(db);
 }
 
 function initDownloaderConfigTable(db: Database){

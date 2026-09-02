@@ -48,13 +48,19 @@ interface Log{
 async function qbitLogin(link: string, username: string, password: string): Promise<string[] | undefined> {
   const body = new URLSearchParams({ username, password });
 
-  const res = await fetch(`${link}/api/v2/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
+  var res: any;
+
+  try {
+    res = await fetch(`${link}/api/v2/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+  } catch (_) {
+    return [];
+  }
 
   const text = await res.text();
   if (text !== 'Ok.') {
@@ -102,7 +108,6 @@ export async function downloadItem(client: string, host: string, username: strin
         }
       );
     } catch (error) {
-      // this.addLog(false, `下载: ${item.title} 失败`);
       return false;
     }
     return true;
@@ -111,11 +116,57 @@ export async function downloadItem(client: string, host: string, username: strin
     if(!cookie || cookie.length==0){
       return false;
     }else{
-      
       if(await qbitAddMagnetTask(host, cookie, downloadLink)){
         return true;
       }
-      
+    }
+  }else if(client=="transmission"){
+
+    const axiosConfig={
+      auth: {
+        username: username,
+        password: secret
+      },
+      headers: {
+        'X-Transmission-Session-Id': ''
+      }
+    }
+
+    const postData = {
+      method: "torrent-add",
+      arguments: {
+        filename: downloadLink 
+      }
+    };
+
+    try {
+      await axios.post(
+        host,
+        {
+          "method": "torrent-add",
+          "arguments": {
+            "filename": downloadLink 
+          }
+        },
+        {
+          auth: {
+            username: username,
+            password: secret
+          },
+        }
+      );
+    } catch (error: any) {
+      if (error.response && error.response.status === 409) {
+        const sessionId = error.response.headers['x-transmission-session-id'];
+        axiosConfig.headers['X-Transmission-Session-Id'] = sessionId;
+        try {
+          const retryRes = await axios.post(host, postData, axiosConfig);
+          return retryRes.data;
+        } catch (retryError) {
+          return false;
+        }
+      }
+      return false;
     }
   }
   return false
@@ -215,9 +266,6 @@ export class Downloader{
     // 注意这里改成官方链接
     if(this.form.type=='mikan'){
       url='https://mikanime.tv/RSS/Classic';
-      // url='http://127.0.0.1:8081'
-    }else if(this.form.type=='acgrip'){
-      url='https://acgrip.art/.xml';
     }else if(this.form.type=='kisssub'){
       url="https://kisssub.org/rss.xml";
     }
@@ -373,8 +421,81 @@ export class Downloader{
       typeof data.secret === "string" &&
       typeof data.freq === "number" &&
       typeof data.type === "string" &&
-      typeof data.client == "string"
+      typeof data.client == "string" &&
+      (data.type=='mikan' || data.type=='kisssub') &&
+      (data.client=='aria' || data.client=='qbit' || data.client=='transmission')
     );
+  }
+
+  // 检查下载器配置
+  async check(body: any): Promise<ResponseType>{
+    if (!body || !body.data || !this.validConfigItem(body.data)) {
+      return ToResponse(false, "参数不正确");
+    }
+
+    switch (body.data.client) {
+      case "aria":
+        try {
+          const response=await axios.post(
+            `${body.data.link}`,
+            {
+              "jsonrpc": "2.0",
+              "method":"aria2.getVersion",
+              "id": 1,
+              "params":[`token:${body.data.secret}`,]
+            }
+          )
+          return ToResponse(true, response.data['result']['version']);
+        } catch (_) {
+          return ToResponse(false, "");
+        }
+
+      case "qbit":
+        const session=await qbitLogin(body.data.link, body.data.username, body.data.secret)
+        return ToResponse(session!=null && session.length!=0, "");
+
+      case "transmission":
+        const axiosConfig={
+          auth: {
+            username: body.data.username,
+            password: body.data.secret
+          },
+          headers: {
+            'X-Transmission-Session-Id': ''
+          }
+        }
+        try {
+          await axios.post(
+            `${body.data.link}`,
+            {
+              method: "session-get",
+            },
+            axiosConfig
+          )
+        } catch (error: any) {
+          if (error.response && error.response.status === 409) {
+            const sessionId = error.response.headers['x-transmission-session-id'];
+            axiosConfig.headers['X-Transmission-Session-Id'] = sessionId;
+            try {
+              const retryRes = await axios.post(
+                `${body.data.link}`,
+                {
+                  method: "session-get",
+                },
+                axiosConfig
+              );
+              return ToResponse(retryRes.data.result=='success', "");;
+            } catch (retryError) {
+              return ToResponse(false, "");;
+            }
+          }
+          return ToResponse(false, "");
+        }
+    
+      default:
+        return ToResponse(false, "客户端类型不合法");
+    }
+    
   }
 
   // 保存表单
